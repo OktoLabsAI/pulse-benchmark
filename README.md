@@ -15,7 +15,11 @@ against a direct-edit baseline, graded by the official `swebench` harness
 direct missed, closing 9/10 → **10/10**. Read the caveats before quoting
 that number — this is a pilot on 10 tasks from **one** of Lite's twelve
 repos, not the full 300-task set, and at this sample size the result does
-not clear statistical significance.
+not clear statistical significance. It also doesn't exercise Pulse's full
+lifecycle: every staged task card in this run was accepted at
+spec-approved + card-created, with Pulse's own task-validation gate
+explicitly **not reached** (see
+[Caveats](#caveats-read-before-quoting-any-number)).
 
 A second major run swaps in `Qwen3.5-9B` as the agent model. It measures a
 different thing — code-change completion, not harness-graded resolved rate —
@@ -58,7 +62,10 @@ All 10 instances, with the actual GitHub issue title, patch size, and the
 `FAIL_TO_PASS` test count the harness graded each patch against. `F2P` is
 tests-passing / tests-total for that instance's `FAIL_TO_PASS` set; every
 instance in both arms kept 100% of `PASS_TO_PASS` (no regressions anywhere,
-in either arm).
+in either arm). **✅/❌ pass bar:** ✅ means the harness marked the instance
+`resolved` — every `FAIL_TO_PASS` test passed *and* every `PASS_TO_PASS`
+test still passed; ❌ means at least one `FAIL_TO_PASS` test failed. That's
+the only criterion behind the checkmark, nothing else is being judged.
 
 | Instance | Issue | Direct | Staged | F2P (direct) | F2P (staged) | Patch size (direct → staged) |
 |---|---|:--:|:--:|:--:|:--:|:--|
@@ -198,21 +205,69 @@ pip install swebench
 Docker is required — `swebench` builds and runs a per-instance container to
 apply the patch and execute `FAIL_TO_PASS` / `PASS_TO_PASS`.
 
-## Running
+The **staged** arm additionally needs a running Okto Pulse instance (`okto-pulse
+serve`, REST API on `http://127.0.0.1:8100`) with a board created and its
+`BOARD` id and API key available to the runner scripts — see
+`runners/pulse_rest.py`. The **direct** arm needs nothing beyond the model
+endpoint.
 
-**Direct** patches are produced by prompting the model once with the issue
-text and repo checkout and taking its diff as-is.
+## Running this benchmark end to end
 
-**Staged** patches are produced by driving the same task through Okto
-Pulse's full lifecycle before any code is written — ideation → architecture +
-mockup → review/approve → spec derivation → FR/TR/AC fill-in → review/approve
-→ implementation card — then applying the resulting edit. See
-`runners/staged_driver.py` (drives the lifecycle over Pulse's REST API,
-since the MCP bridge stringifies array params that some gates require as
-real arrays) and `runners/apply_staged.py` (turns the approved staged edit
-into a real `git diff`, identical in mechanism to how the direct arm's diff
-is produced — the variable under test is the process, not the edit
-mechanics).
+Both arms start from the same SWE-bench Lite instances and end at the same
+place: a `predictions_<arm>.jsonl` file the official harness can grade. What
+differs is how the patch gets produced.
+
+### 1. Direct arm — single-shot baseline
+
+Prompt the model once with the issue text and repo checkout, and take its
+diff as-is, no Pulse involved. Write the results to
+`results/predictions_direct.jsonl` in the `swebench` predictions format
+(`instance_id`, `model_name_or_path`, `model_patch`).
+
+### 2. Staged arm — drive the task through Okto Pulse's lifecycle first
+
+1. **Generate the task definitions.** `scripts/gen_staged.py` turns each
+   SWE-bench instance's issue text into the fields Pulse's lifecycle needs
+   (ideation problem/approach, refinement analysis/in-scope/out-of-scope,
+   spec FR/TR/AC, implementation-card details) and writes `tasks_rest.json`.
+2. **Drive the lifecycle over Pulse's REST API.** `runners/staged_driver.py`
+   (using the `pulse_rest.py` helper — talks to the same local Pulse server
+   the MCP bridge would, but over plain REST, since the MCP bridge
+   stringifies array params that some gates require as real arrays) pushes
+   each task through Pulse's actual board stages in order, gated at every
+   step — nothing is skipped or faked server-side:
+   - **Ideation** — create the card, attach the mandatory architecture +
+     screen-mockup resources, move it through `review → approved →
+     evaluating → done`.
+   - **Refinement** — create the brownfield refinement (analysis, in-scope,
+     out-of-scope, decisions) off that ideation, move it through
+     `review → approved → done`.
+   - **Spec** — derive the spec from the refinement, fill in its functional
+     requirements / technical requirements / acceptance criteria, move it
+     through `review → approved`.
+   - **Task** — create the implementation card off the approved spec, with
+     the instance id, base commit and worktree path baked into its details.
+
+   `runners/staged_driver.py --help` or its module docstring has the full
+   per-task state machine; `results/qwen3.5-9b/pulse-board-export.json` is a
+   real export of a board that went through this exact chain.
+3. **Apply the staged edit and emit a real diff.** Once a task's card is
+   approved, `runners/apply_staged.py` makes the actual code edit in the
+   instance's worktree and emits a `git diff` — identical in mechanism to
+   how the direct arm's diff is produced, so the variable under test is the
+   *process*, not the edit mechanics. This produces
+   `results/predictions_staged.jsonl`.
+
+**What this run does *not* exercise:** Pulse also has a **Validation**
+stage/gate after Task, which runs requirement-lint and other evidence checks
+before a card is considered fully resolved. Every task in both the
+qwen3.8-flash and Qwen3.5-9B runs stopped at spec-approved + card-created —
+the validation gate was deliberately not reached (see
+[Caveats](#caveats-read-before-quoting-any-number) and the Qwen3.5-9B
+report's `Validation 0/10` row). Reproducing this benchmark as-is reproduces
+that gap too; closing it is one of the [next steps](#next-steps-in-priority-order).
+
+### 3. Grade both arms with the official harness
 
 ```bash
 # grade a predictions file with the official harness
@@ -229,24 +284,23 @@ python -m swebench.harness.run_evaluation \
   --max_workers 4
 ```
 
-Each run writes a `<run_id>.json` summary (the files under `results/` were
-produced this way) plus a `logs/run_evaluation/<run_id>/` tree with
-per-instance container logs.
+Each run writes a `<run_id>.json` summary (`resolved_instances`,
+`unresolved_instances`, etc. — see `results/qwen3.8-flash-*.json` for the
+actual output shape) plus a `logs/run_evaluation/<run_id>/` tree with
+per-instance container logs. Run the gold-patch sanity check the same way
+against the real upstream fixes before trusting either arm's numbers (see
+`results/gold.validate-gold-all-10.json`).
 
 ## Methodology
 
-A raw resolved-count delta is not, on its own, treated as evidence of
-anything beyond "worth a bigger run":
-
-- staged and direct run the **same instances**, so a gap isn't explained by
-  one arm getting easier tasks;
-- grading is entirely mechanical — the harness's `FAIL_TO_PASS`/`PASS_TO_PASS`
-  test execution decides resolved or not, nothing is judged by an LLM;
-- the result was checked against the **gold-patch sanity run**
-  (`results/gold.validate-gold-all-10.json`) so a harness/container problem
-  can't be mistaken for an editing-quality result;
-- no significance claim is made below the sample size that would support one
-  — see Caveats.
+The three principles behind every comparison in this repo — paired
+instances, mechanical (non-LLM) grading, and no significance claim below
+what the sample supports — are laid out once in
+["How to read this"](#how-to-read-this) above; that's the canonical
+statement, not repeated here. The one addition at the methodology level:
+every result was checked against the **gold-patch sanity run**
+(`results/gold.validate-gold-all-10.json`) so a harness/container problem
+can't be mistaken for an editing-quality result.
 
 ## Next steps, in priority order
 
