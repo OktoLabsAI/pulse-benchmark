@@ -4,16 +4,28 @@ This file exists so status survives across sessions and machines, same
 convention as `caura-ai`'s sibling benchmark repo this project was modeled
 on. Keep it current; the README is the summary, this is the detail.
 
-## Current status (2026-09-18)
+## Current status (2026-10-05)
 
 One suite populated: `suites/swe_bench_lite`. 10 of SWE-bench Lite's 300
-instances run, all `pytest-dev/pytest`, one model (`qwen3.8-flash`), two
-arms (`direct`, `staged`). Full numbers and caveats:
-`reports/2026-09-18-swe-bench-lite-pilot.md`.
+instances run, all `pytest-dev/pytest`, two arms (`direct`, `staged`), three
+models run so far:
 
-Headline, restated: staged (Okto Pulse's plan-then-edit lifecycle) never
-did worse than direct at this n, and closed the one gap direct left —
-9/10 → 10/10.
+- **`qwen3.8-flash`** — harness-graded resolved rate: staged 10/10, direct
+  9/10. Full numbers and caveats: `reports/2026-09-18-swe-bench-lite-pilot.md`.
+- **`Qwen3.5-9B`** — code-change completion only (not harness-graded): both
+  arms 10/10 applied a code change; staged lifecycle completed
+  ideation/refinement/spec/task for all 10, validation gate 0/10. Full
+  writeup: `reports/2026-09-23-qwen3.5-9b-pytest-pilot.md`.
+- **`Qwen3.5-27B`** — harness-graded resolved rate: staged 10/10, direct
+  10/10, no discordant pair. Staged arm's architecture gate was manually
+  verified rather than server-transitioned (live Pulse `ideation -> done`
+  `500` bug on ideations with an attached architecture); per-instance diffs
+  not preserved for this run, only raw harness reports. Full writeup:
+  `reports/2026-10-05-qwen3.5-27b-pytest-pilot.md`.
+
+Headline, restated: staged (Okto Pulse's plan-then-edit lifecycle) has never
+done worse than direct across any of the three models run so far, and
+closed the one gap direct left under `qwen3.8-flash` — 9/10 → 10/10.
 
 ## Source of the raw run
 
@@ -41,8 +53,16 @@ predates the 10-instance sanity run now in
    (this pilot's 1 discordant pair) still doesn't clear significance, so
    this repo makes no significance claim yet; don't let a future update
    assert one without the math actually supporting it.
-3. **Run additional agent models** on the same instance set to check
-   whether the staged advantage generalizes beyond `qwen3.8-flash`.
+3. **Fix the `ideation -> done` `500` on ideations with an attached
+   architecture design**, then re-run the Qwen3.5-27B staged arm fully
+   server-gated instead of relying on manual verification of that gate.
+4. **Preserve per-instance diffs for the Qwen3.5-27B run**, same as the
+   `qwen3.8-flash` and Qwen3.5-9B runs, so a worked-example comparison is
+   possible for it too.
+5. **Run additional agent models** on the same instance set to check
+   whether the staged advantage generalizes beyond `qwen3.8-flash` — ideally
+   one that produces a discordant pair, since a clean sweep on both arms
+   (as with `Qwen3.5-27B`) can't show a staged advantage even if one exists.
 
 ## Conventions carried over from the reference repo this was modeled on
 

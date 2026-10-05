@@ -1,7 +1,7 @@
 # okto-pulse-benchmarks
 
 <p align="center">
-  <img src="assets/banner.svg?v=2" alt="okto-pulse-benchmarks: SWE-bench Lite, pytest slice. qwen3.8-flash resolved (harness-graded): staged 10/10, direct 9/10. Qwen3.5-9B code-change completion (not [...] 
+  <img src="assets/banner.svg?v=3" alt="okto-pulse-benchmarks: SWE-bench Lite, pytest slice. qwen3.8-flash resolved (harness-graded): staged 10/10, direct 9/10. Qwen3.5-9B code-change completion (not harness-graded): staged and direct both 10/10. Qwen3.5-27B resolved (harness-graded): staged 10/10, direct 10/10." /> 
 </p>
 
 **Does Okto Pulse's staged, plan-then-edit workflow actually produce better
@@ -21,10 +21,15 @@ spec-approved + card-created, with Pulse's own task-validation gate
 explicitly **not reached** (see
 [Caveats](#caveats-read-before-quoting-any-number)).
 
-A second major run swaps in `Qwen3.5-9B` as the agent model. It measures a
-different thing — code-change completion, not harness-graded resolved rate —
-so its numbers are reported in their own section below, not blended into the
-`qwen3.8-flash` figure above. See [Qwen3.5-9B](#qwen35-9b--code-change-completion-n10).
+Two more major runs swap in different agent models on the same slice. A
+`Qwen3.5-9B` run measures a different thing — code-change completion, not
+harness-graded resolved rate — so its numbers are reported in their own
+section, not blended into the `qwen3.8-flash` figure above (see
+[Qwen3.5-9B](#qwen35-9b--code-change-completion-n10)). A `Qwen3.5-27B` run
+*is* harness-graded like `qwen3.8-flash`, resolving 10/10 on both arms — but
+carries its own caveat about a Pulse gate that had to be manually verified
+rather than server-transitioned (see
+[Qwen3.5-27B](#qwen35-27b--resolved-rate-harness-graded)).
 
 ## qwen3.8-flash — resolved rate (harness-graded)
 
@@ -195,6 +200,42 @@ resolved rate: the patches were not evaluated with SWE-bench's
 `FAIL_TO_PASS` / `PASS_TO_PASS` harness. The next comparable step is to run
 both arms through that harness on the same 10 instances.
 
+## Qwen3.5-27B — resolved rate (harness-graded)
+
+A third major run, same `pytest-dev/pytest` slice, this time with
+`Qwen3.5-27B` as the agent model and graded through the same official
+`swebench` harness as the `qwen3.8-flash` pilot — this is the comparable
+next step the Qwen3.5-9B section above calls for.
+
+**Read this caveat before the number.** Pulse's `ideation -> done`
+transition currently returns a server-side `500` on ideations that have an
+architecture design attached (a live Pulse bug). For all 10 staged tasks in
+this run, the architecture + mockup resources were attached and **manually
+verified** rather than carried through that automatic server transition —
+the rest of the lifecycle (refinement, spec, FR/TR/AC, review/approve, task)
+went through the normal gates unmodified. Full detail, plus the fact that
+per-instance diffs weren't preserved for this run (only the harness reports
+were), is in the linked report below — don't quote the number below without
+it.
+
+| Arm | Resolved |
+|:--|:--:|
+| **Staged (Okto Pulse)** | **10 / 10** |
+| Direct (single-shot) | 10 / 10 |
+
+Both arms resolved all 10 instances — 100% of `FAIL_TO_PASS` and 100% of
+`PASS_TO_PASS` everywhere, no regressions. Unlike the `qwen3.8-flash` pilot,
+there's no discordant pair here, so this result shows staged didn't cost
+anything on this slice, not that it helped — see the full report for why a
+clean sweep on both arms can't, by itself, provide that signal.
+
+The raw evidence is the harness's own per-instance `report.json` output for
+all 20 runs, unedited, in
+[`results/qwen3.5-27b/harness-reports-raw.txt`](results/qwen3.5-27b/harness-reports-raw.txt)
+(20 occurrences of `"resolved": true`, zero `false`). Full writeup, caveats,
+and next steps are in
+[`reports/2026-10-05-qwen3.5-27b-pytest-pilot.md`](reports/2026-10-05-qwen3.5-27b-pytest-pilot.md).
+
 ## Setup
 
 ```bash
@@ -310,17 +351,25 @@ can't be mistaken for an editing-quality result.
    the only way to get a number worth quoting externally.
 2. **Add a paired significance test** (bootstrap CI / exact McNemar) once the
    sample is large enough for it to be meaningful.
-3. **Run additional agent models** on the same instance set to see whether
-   the staged advantage holds beyond `qwen3.8-flash`.
+3. **Fix the `ideation -> done` `500` on ideations with an attached
+   architecture design**, then re-run the Qwen3.5-27B staged arm fully
+   server-gated instead of relying on manual verification of that one gate.
+4. **Preserve per-instance diffs for the Qwen3.5-27B run** the way the
+   `qwen3.8-flash` and Qwen3.5-9B runs do, so a worked-example comparison is
+   possible there too.
+5. **Run additional agent models** on the same instance set to see whether
+   the staged advantage holds beyond `qwen3.8-flash`, and ideally one chosen
+   to produce a discordant pair rather than a clean sweep on both arms.
 
 ## Repo layout
 
 ```
 results/    per-run harness summaries (*.json), raw predictions (*.jsonl),
             the gold-patch sanity check, examples/ (worked-example
-            direct-vs-staged diffs cited in the README/reports), and
+            direct-vs-staged diffs cited in the README/reports),
             qwen3.5-9b/ (staged diffs + Pulse board export for the
-            code-change-completion pilot)
+            code-change-completion pilot), and qwen3.5-27b/ (unedited raw
+            harness report.json output for the harness-graded pilot)
 runners/    Okto Pulse staged-lifecycle driver (staged_driver.py), the REST
             helper it runs over (pulse_rest.py), and the diff-emission step
             shared by both arms (apply_staged.py)

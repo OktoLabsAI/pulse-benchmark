@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" role="img"
-     aria-label="okto-pulse-benchmarks. Panel one: SWE-bench Lite pytest slice, qwen3.8-flash, resolved via the swebench harness. Staged resolves 10 of 10 tasks, direct resolves 9 of 10. Panel two: same slice, Qwen3.5-9B, code-change completion only, not harness-graded. Staged and direct both apply a code change on 10 of 10 tasks.">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="860" viewBox="0 0 1200 860" role="img"
+     aria-label="okto-pulse-benchmarks. Panel one: SWE-bench Lite pytest slice, qwen3.8-flash, resolved via the swebench harness. Staged resolves 10 of 10 tasks, direct resolves 9 of 10. Panel two: same slice, Qwen3.5-9B, code-change completion only, not harness-graded. Staged and direct both apply a code change on 10 of 10 tasks. Panel three: same slice, Qwen3.5-27B, resolved via the swebench harness. Staged resolves 10 of 10, direct resolves 10 of 10; the staged arm's architecture gate was manually verified due to a live Pulse server bug, not server-transitioned.">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="#12161f"/>
@@ -17,13 +17,17 @@
       <stop offset="0%" stop-color="#6d8bd6"/>
       <stop offset="100%" stop-color="#4f6cb0"/>
     </linearGradient>
+    <linearGradient id="green-fill" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#3ddc97"/>
+      <stop offset="100%" stop-color="#22b8a0"/>
+    </linearGradient>
   </defs>
 
-  <rect width="1200" height="560" fill="url(#bg)"/>
+  <rect width="1200" height="860" fill="url(#bg)"/>
 
   <!-- Title block -->
   <text x="56" y="56" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="30" font-weight="700" fill="#f2f4f8">okto-pulse-benchmarks</text>
-  <text x="56" y="82" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="15" fill="#9aa3b8">SWE-bench Lite &#183; pytest-dev/pytest slice (n=10) &#183; two agent models, two different metrics</text>
+  <text x="56" y="82" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="15" fill="#9aa3b8">SWE-bench Lite &#183; pytest-dev/pytest slice (n=10) &#183; three agent models, two metrics (resolved rate + code-change completion)</text>
 
   <!-- Divider under masthead -->
   <line x1="56" y1="104" x2="1144" y2="104" stroke="#2a3142" stroke-width="1"/>
@@ -69,6 +73,30 @@
 
   <text x="56" y="530" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="13" fill="#7c869c">Both arms applied a code change on every task &#8212; this metric does not measure whether the patch was correct.</text>
 
+  <!-- Divider between panels -->
+  <line x1="56" y1="556" x2="1144" y2="556" stroke="#2a3142" stroke-width="1"/>
+
+  <!-- ===================== Panel 3: Qwen3.5-27B, resolved rate ===================== -->
+  <text x="56" y="592" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="18" font-weight="700" fill="#f2f4f8">Qwen3.5-27B &#8212; resolved (swebench harness, FAIL_TO_PASS/PASS_TO_PASS)</text>
+
+  <g font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+    <!-- Staged bar -->
+    <text x="56" y="628" font-size="15" font-weight="600" fill="#e7eaf1">Staged (Okto Pulse)</text>
+    <rect x="56" y="640" width="760" height="30" rx="7" fill="#2a3142"/>
+    <rect x="56" y="640" width="760" height="30" rx="7" fill="url(#green-fill)"/>
+    <text x="826" y="662" font-size="18" font-weight="700" fill="#3ddc97">10 / 10</text>
+
+    <!-- Direct bar -->
+    <text x="56" y="692" font-size="15" font-weight="600" fill="#e7eaf1">Direct (single-shot)</text>
+    <rect x="56" y="704" width="760" height="30" rx="7" fill="#2a3142"/>
+    <rect x="56" y="704" width="760" height="30" rx="7" fill="url(#green-fill)"/>
+    <text x="826" y="726" font-size="18" font-weight="700" fill="#3ddc97">10 / 10</text>
+  </g>
+
+  <text x="56" y="756" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="13" fill="#7c869c">Both arms resolve every task here &#8212; no discordant pair, so this shows staged didn't cost anything, not that it helped.</text>
+  <text x="56" y="776" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#c98a4a">Caveat: the staged arm's architecture gate was manually verified, not server-transitioned &#8212; a live Pulse "ideation-&gt;done" 500 bug on ideations with an attached architecture. See the report.</text>
+
   <!-- Footnote -->
-  <text x="56" y="552" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#5c6580">Both panels: 10-task pilot, one repo &#8212; not a claim about SWE-bench Lite as a whole. See README caveats.</text>
+  <line x1="56" y1="804" x2="1144" y2="804" stroke="#2a3142" stroke-width="1"/>
+  <text x="56" y="828" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#5c6580">All panels: 10-task pilot, one repo &#8212; not a claim about SWE-bench Lite as a whole. See README caveats.</text>
 </svg>
